@@ -1,0 +1,45 @@
+{
+  "id": "./",
+  "name": "Sekretariat Gereja Maranatha Tolitoli",
+  "short_name": "Maranatha",
+  "description": "Sistem informasi jemaat Gereja Maranatha Tolitoli: data jemaat, keuangan, tata ibadah, warta, jadwal pelayanan, kegiatan, aset, dan rekap ulang tahun.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0b1e36",
+  "theme_color": "#0e2746",
+  "categories": ["productivity", "lifestyle", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Warta Jemaat",
+      "short_name": "Warta",
+      "description": "Buka warta jemaat dan rekap ulang tahun pekan ini",
+      "url": "./index.html#/warta",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Data Jemaat",
+      "short_name": "Jemaat",
+      "description": "Buku jemaat digital",
+      "url": "./index.html#/jemaat",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Keuangan Gereja",
+      "short_name": "Keuangan",
+      "description": "Kas dan transaksi keuangan",
+      "url": "./index.html#/keuangan",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
