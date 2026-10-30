@@ -5,10 +5,11 @@
 
 const UI = {
   jemaat: { q: '', wilayah: '', kategori: '', status: '' },
-  keuangan: { bulan: currentMonth(), jenis: '', q: '' },
+  keuangan: { bulan: currentMonth(), jenis: '', q: '', kas: '' },
   warta: { kategori: '' },
   jadwal: { tab: 'jadwal' },
   kegiatan: { filter: 'akan' },
+  aset: { q: '', kategori: '', kondisi: '' },
 };
 
 const PAGE_META = {
@@ -20,6 +21,7 @@ const PAGE_META = {
   jadwal: { crumb: 'Jadwal Pelayanan', title: 'Jadwal Pelayanan' },
   kegiatan: { crumb: 'Kegiatan Jemaat', title: 'Kegiatan Jemaat' },
   struktur: { crumb: 'Struktur Organisasi', title: 'Struktur Organisasi' },
+  aset: { crumb: 'Data Aset Gereja', title: 'Data Aset Gereja' },
   pengaturan: { crumb: 'Pengaturan', title: 'Pengaturan' },
 };
 
@@ -32,6 +34,7 @@ const ROUTES = {
   jadwal: renderJadwal,
   kegiatan: renderKegiatan,
   struktur: renderStruktur,
+  aset: renderAset,
   pengaturan: renderPengaturan,
 };
 
@@ -45,6 +48,8 @@ function getRoute() {
 let _lastPage = '';
 
 function render(opts = {}) {
+  /* Jangan tampilkan isi aplikasi sebelum login. */
+  if (typeof authUnlocked === 'function' && !authUnlocked()) return;
   const { keepScroll = false, focus = null } = opts;
   const scrollY = window.scrollY;
   const { page, params } = getRoute();
@@ -58,6 +63,7 @@ function render(opts = {}) {
     html = `<div class="card pad">${emptyState('Terjadi kesalahan', 'Muat ulang halaman atau periksa data aplikasi.', 'alert')}</div>`;
   }
   document.getElementById('app').innerHTML = html;
+  if (typeof pwaRefreshUI === 'function') pwaRefreshUI();
 
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === key));
   const meta = PAGE_META[key];
@@ -118,6 +124,7 @@ function toggleSidebar() {
 /* ---------------- filters ---------------- */
 const debouncedJemaatSearch = debounce(() => rerender({ focus: '#jemaatSearch' }), 220);
 const debouncedTxSearch = debounce(() => rerender({ focus: '#txSearch' }), 220);
+const debouncedAsetSearch = debounce(() => rerender({ focus: '#asetSearch' }), 220);
 
 /* ---------------- import / export ---------------- */
 function exportAllData() {
@@ -143,13 +150,14 @@ function handleImportFile(input) {
         onConfirm: () => {
           data.meta = data.meta || {};
           data.meta.updatedAt = new Date().toISOString();
-          ['transaksi', 'ibadah', 'jadwal', 'pelayan', 'warta', 'kegiatan', 'struktur'].forEach((k) => {
+          ['transaksi', 'ibadah', 'jadwal', 'pelayan', 'warta', 'kegiatan', 'struktur', 'aset'].forEach((k) => {
             if (!Array.isArray(data[k])) data[k] = [];
           });
           replaceDB(data);
           UI.jemaat = { q: '', wilayah: '', kategori: '', status: '' };
-          UI.keuangan = { bulan: currentMonth(), jenis: '', q: '' };
+          UI.keuangan = { bulan: currentMonth(), jenis: '', q: '', kas: '' };
           UI.warta = { kategori: '' };
+          UI.aset = { q: '', kategori: '', kondisi: '' };
           render();
           toast('Data berhasil diimpor.');
         },
@@ -177,6 +185,9 @@ document.addEventListener('submit', (e) => {
     orgForm: saveOrgForm,
     liturgyForm: saveLiturgyForm,
     settingsForm: saveSettingsForm,
+    saldoKasForm: saveSaldoKasForm,
+    asetForm: saveAsetForm,
+    passwordForm: savePasswordForm,
   };
   const handler = handlers[form.id];
   if (!handler) return;
@@ -193,6 +204,9 @@ document.addEventListener('input', (e) => {
   } else if (t.id === 'txSearch') {
     UI.keuangan.q = t.value;
     debouncedTxSearch();
+  } else if (t.id === 'asetSearch') {
+    UI.aset.q = t.value;
+    debouncedAsetSearch();
   } else if (t.classList && t.classList.contains('lit-durasi')) {
     updateLiturgySummary();
   }
@@ -204,8 +218,11 @@ document.addEventListener('change', (e) => {
   else if (t.id === 'jemaatKategori') { UI.jemaat.kategori = t.value; rerender({ keepScroll: true }); }
   else if (t.id === 'jemaatStatus') { UI.jemaat.status = t.value; rerender({ keepScroll: true }); }
   else if (t.id === 'txMonth') { UI.keuangan.bulan = t.value || currentMonth(); rerender({ keepScroll: true }); }
+  else if (t.id === 'txKasFilter') { UI.keuangan.kas = t.value; rerender({ keepScroll: true }); }
   else if (t.id === 'txJenisFilter') { UI.keuangan.jenis = t.value; rerender({ keepScroll: true }); }
   else if (t.id === 'txJenis') { refreshTxCategories(); }
+  else if (t.id === 'asetKategori') { UI.aset.kategori = t.value; rerender({ keepScroll: true }); }
+  else if (t.id === 'asetKondisi') { UI.aset.kondisi = t.value; rerender({ keepScroll: true }); }
   else if (t.id === 'importFile') { handleImportFile(t); }
 });
 
@@ -222,6 +239,10 @@ document.addEventListener('click', (e) => {
   }
   if (action === 'modal-close') { closeModal(); return; }
   if (action === 'confirm-yes') { runConfirm(); return; }
+  if (action === 'auth-toggle-pw') { togglePasswordField(el); return; }
+  if (action === 'lock-app') { lockApp(); return; }
+  if (action === 'toggle-fullscreen') { pwaToggleFullscreen(); return; }
+  if (action === 'install-app') { pwaInstall(); return; }
 
   switch (action) {
     /* presentation */
@@ -257,9 +278,17 @@ document.addEventListener('click', (e) => {
     case 'tx-delete': deleteTx(id); break;
     case 'tx-export': exportTxCSV(); break;
     case 'tx-reset-filter':
-      UI.keuangan = { bulan: currentMonth(), jenis: '', q: '' };
+      UI.keuangan = { bulan: currentMonth(), jenis: '', q: '', kas: '' };
       rerender({ keepScroll: true });
       break;
+    case 'kas-filter':
+      UI.keuangan.kas = UI.keuangan.kas === el.dataset.kas ? '' : el.dataset.kas;
+      rerender({ keepScroll: true });
+      break;
+    case 'kas-open':
+      UI.keuangan.kas = el.dataset.kas || '';
+      break;
+    case 'kas-saldo': openSaldoKasForm(); break;
     case 'finance-print': printFinanceReport(); break;
 
     /* warta */
@@ -272,6 +301,27 @@ document.addEventListener('click', (e) => {
     case 'warta-print': printWarta(); break;
     case 'warta-filter':
       UI.warta.kategori = el.dataset.kategori || '';
+      rerender({ keepScroll: true });
+      break;
+    case 'warta-birthday':
+      openWartaForm('', {
+        judul: 'Ulang Tahun Jemaat Pekan Ini',
+        kategori: 'Ulang Tahun',
+        tanggal: todayISO(),
+        isi: birthdayWeekText(),
+      });
+      break;
+    case 'birthday-copy': copyBirthdayRecap(); break;
+
+    /* aset */
+    case 'aset-add': openAsetForm(); break;
+    case 'aset-view': viewAset(id); break;
+    case 'aset-edit': openAsetForm(id); break;
+    case 'aset-delete': deleteAset(id); break;
+    case 'aset-export': exportAsetCSV(); break;
+    case 'aset-print': printAsetReport(); break;
+    case 'aset-reset-filter':
+      UI.aset = { q: '', kategori: '', kondisi: '' };
       rerender({ keepScroll: true });
       break;
 
@@ -339,10 +389,11 @@ document.addEventListener('click', (e) => {
         onConfirm: () => {
           resetDB();
           UI.jemaat = { q: '', wilayah: '', kategori: '', status: '' };
-          UI.keuangan = { bulan: currentMonth(), jenis: '', q: '' };
+          UI.keuangan = { bulan: currentMonth(), jenis: '', q: '', kas: '' };
           UI.warta = { kategori: '' };
           UI.jadwal = { tab: 'jadwal' };
           UI.kegiatan = { filter: 'akan' };
+          UI.aset = { q: '', kategori: '', kondisi: '' };
           render();
           toast('Data contoh berhasil dipulihkan.');
         },
@@ -369,7 +420,8 @@ document.addEventListener('keydown', (e) => {
 /* ---------------- boot ---------------- */
 window.addEventListener('hashchange', () => {
   closeSidebar();
+  if (typeof authUnlocked === 'function' && !authUnlocked()) return;
   render();
 });
 
-render();
+startApp();

@@ -6,7 +6,15 @@
 <title>Sekretariat Gereja Maranatha Tolitoli</title>
 <meta name="description" content="Sistem informasi jemaat Gereja Maranatha Tolitoli — data jemaat, keuangan, tata ibadah, warta, jadwal pelayanan, kegiatan, dan struktur organisasi.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230e2746'/%3E%3Cpath d='M50 16v68M30 40h40' stroke='%23d8b743' stroke-width='10' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0e2746">
+<meta name="application-name" content="Maranatha">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Maranatha">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
 
@@ -49,6 +57,10 @@
   <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
   <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M17.9 17.9A10.4 10.4 0 0 1 12 20c-7 0-11-8-11-8a19 19 0 0 1 5.1-6.1"/><path d="M9.9 4.2A9.8 9.8 0 0 1 12 4c7 0 11 8 11 8a19.3 19.3 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M2 2l20 20"/></symbol>
+  <symbol id="i-minimize" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3"/></symbol>
 </svg>
 
 <div class="app">
@@ -72,6 +84,8 @@
       <a href="#/warta" data-nav="warta"><svg class="ico"><use href="#i-megaphone"/></svg><span>Warta Jemaat</span></a>
       <a href="#/jadwal" data-nav="jadwal"><svg class="ico"><use href="#i-calendar"/></svg><span>Jadwal Pelayanan</span></a>
       <a href="#/kegiatan" data-nav="kegiatan"><svg class="ico"><use href="#i-heart"/></svg><span>Kegiatan Jemaat</span></a>
+      <div class="nav-label">Inventaris</div>
+      <a href="#/aset" data-nav="aset"><svg class="ico"><use href="#i-box"/></svg><span>Data Aset Gereja</span></a>
       <div class="nav-label">Organisasi</div>
       <a href="#/struktur" data-nav="struktur"><svg class="ico"><use href="#i-sitemap"/></svg><span>Struktur Organisasi</span></a>
       <a href="#/pengaturan" data-nav="pengaturan"><svg class="ico"><use href="#i-settings"/></svg><span>Pengaturan</span></a>
@@ -89,7 +103,7 @@
     </div>
     <div class="side-foot">
       <span>Data tersimpan lokal di perangkat ini</span>
-      <span class="version">v1.0 · 2026</span>
+      <span class="version">v1.3 · 2026</span>
     </div>
   </aside>
   <div class="sidebar-scrim" id="sidebarScrim"></div>
@@ -111,6 +125,15 @@
         </div>
         <button class="btn btn-outline btn-sm top-present" data-action="quick-warta-slide">
           <svg class="ico"><use href="#i-play"/></svg> Tampilkan Warta
+        </button>
+        <button class="icon-btn install-btn" data-action="install-app" data-pwa-install title="Pasang aplikasi" aria-label="Pasang aplikasi">
+          <svg class="ico"><use href="#i-download"/></svg>
+        </button>
+        <button class="icon-btn" data-action="toggle-fullscreen" title="Layar penuh" aria-label="Layar penuh">
+          <svg class="ico"><use href="#i-maximize" data-pwa-fullscreen-icon/></svg>
+        </button>
+        <button class="icon-btn lock-btn" data-action="lock-app" title="Kunci aplikasi" aria-label="Kunci aplikasi">
+          <svg class="ico"><use href="#i-lock"/></svg>
         </button>
         <div class="admin-chip">
           <div class="avatar avatar-gold">GM</div>
@@ -200,12 +223,17 @@
 <!-- Print area -->
 <div id="printRoot"></div>
 
-<script src="js/vendor/pptxgen.bundle.js"></script>
-<script src="js/store.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/slides.js"></script>
-<script src="js/pages.js"></script>
-<script src="js/ibadah.js"></script>
-<script src="js/main.js"></script>
+<!-- Login / kunci akses -->
+<div id="loginRoot" class="login-screen hidden"></div>
+
+<script src="pptxgen.bundle.js"></script>
+<script src="store.js"></script>
+<script src="ui.js"></script>
+<script src="auth.js"></script>
+<script src="pwa.js"></script>
+<script src="slides.js"></script>
+<script src="pages.js"></script>
+<script src="ibadah.js"></script>
+<script src="main.js"></script>
 </body>
 </html>

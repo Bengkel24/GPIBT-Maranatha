@@ -94,6 +94,20 @@ function buildWartaSlides(list = null) {
     });
   });
 
+  const bdays = birthdaysThisWeek();
+  if (bdays.length) {
+    const range = weekRangeISO();
+    slides.push({
+      type: 'warta',
+      kicker: `Ulang Tahun · ${dateMedium(range.start)} – ${dateMedium(range.end)}`,
+      title: 'Ulang Tahun Jemaat Pekan Ini',
+      subtitle: 'Tuhan memberkati, selamat ulang tahun!',
+      body: bdays.map((j) => `• ${dayName(j.ulangTahunISO)}, ${dateMedium(j.ulangTahunISO)}\n   ${j.nama} (${j.usiaBaru} tahun) — ${j.wilayah}`).join('\n'),
+      meta: [`${bdays.length} jemaat berulang tahun`],
+      tag: 'Ulang Tahun',
+    });
+  }
+
   slides.push({
     type: 'closing',
     kicker: 'Warta Jemaat',

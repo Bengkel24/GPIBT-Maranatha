@@ -14,8 +14,8 @@ function pageHead(eyebrow, title, desc, actions = '') {
   </div>`;
 }
 
-function financeChartHTML(count = 6) {
-  const data = monthsBack(count).map((m) => ({ ...m, ...monthTotals(m.key) }));
+function financeChartHTML(count = 6, kasId = '') {
+  const data = monthsBack(count).map((m) => ({ ...m, ...monthTotals(m.key, kasId || undefined) }));
   const max = Math.max(...data.flatMap((d) => [d.masuk, d.keluar]), 1);
   return `<div class="chart-wrap">
     <div class="chart">
@@ -64,15 +64,15 @@ function renderDashboard() {
         <div class="stat-body">
           <div class="stat-label">Jemaat Aktif</div>
           <div class="stat-value">${num(aktif.length)} <span style="font-size:11px;font-weight:600;color:var(--muted)">orang</span></div>
-          <div class="stat-hint">${num(kk)} kepala keluarga · ${new Set(aktif.map((j) => j.wilayah)).size} wilayah</div>
+          <div class="stat-hint">${num(kk)} kepala keluarga · ${new Set(aktif.map((j) => j.wilayah)).size} kolom</div>
         </div>
       </div>
       <div class="stat green">
         <div class="stat-ico">${icon('wallet')}</div>
         <div class="stat-body">
-          <div class="stat-label">Saldo Kas Gereja</div>
+          <div class="stat-label">Total Saldo Kas</div>
           <div class="stat-value">${money(saldo)}</div>
-          <div class="stat-hint">Bulan ini ${mt.net >= 0 ? '+' : ''}${money(mt.net)}</div>
+          <div class="stat-hint">${KAS_LIST.length} kas · bulan ini ${mt.net >= 0 ? '+' : ''}${money(mt.net)}</div>
         </div>
       </div>
       <div class="stat gold">
@@ -90,6 +90,21 @@ function renderDashboard() {
           <div class="stat-value">${num(upcoming.length)}</div>
           <div class="stat-hint">${nextKegiatan ? esc(nextKegiatan.nama) : 'Belum ada kegiatan'}</div>
         </div>
+      </div>
+    </div>
+
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="card-head">
+        <div><h3>Saldo per Kas</h3><p>Kas jemaat, kas kolom 1–5, komisi duka, dan komisi pembangunan</p></div>
+        <a class="link" href="#/keuangan">Kelola keuangan ${icon('chevron-right')}</a>
+      </div>
+      <div class="kas-grid">
+        ${kasSaldoList().map((k) => `
+          <a class="kas-card tone-${k.tone}" href="#/keuangan" data-action="kas-open" data-kas="${k.id}" title="${esc(k.desc)}">
+            <span class="kas-name">${esc(k.nama)}</span>
+            <b class="kas-amount">${money(k.saldo)}</b>
+            <span class="kas-meta ${k.net < 0 ? 'neg' : ''}">${k.net >= 0 ? '+' : ''}${money(k.net)} bulan ini</span>
+          </a>`).join('')}
       </div>
     </div>
 
@@ -202,7 +217,7 @@ function renderDashboard() {
           ${birthdays.slice(0, 6).map((j) => `
             <div class="birthday-item">
               ${avatarHTML(j.nama, 'avatar-sm')}
-              <div><b>${esc(j.nama)}</b><small>${j.kategori} · ${j.wilayah.split(' - ')[1] || j.wilayah}</small></div>
+              <div><b>${esc(j.nama)}</b><small>${j.kategori} · ${esc(j.wilayah)}</small></div>
               <div class="day">${parseISO(j.tglLahir).getDate()} ${MONTHS_SHORT[parseISO(j.tglLahir).getMonth()]}</div>
             </div>`).join('') || `<p style="font-size:11.5px;color:var(--muted);margin:0">Tidak ada ulang tahun jemaat bulan ini.</p>`}
         </div>
@@ -239,7 +254,7 @@ function renderJemaat() {
   const birthdays = birthdaysThisMonth().length;
 
   return `
-    ${pageHead('Data & Administrasi', 'Data Jemaat', 'Buku jemaat digital: data keluarga, wilayah, baptis, sidi, dan kontak jemaat.', `
+    ${pageHead('Data & Administrasi', 'Data Jemaat', 'Buku jemaat digital: data keluarga, kolom pelayanan, baptis, sidi, dan kontak jemaat.', `
       <button class="btn btn-outline" data-action="jemaat-export">${icon('download')} Ekspor CSV</button>
       <button class="btn btn-primary" data-action="jemaat-add">${icon('user-plus')} Tambah Jemaat</button>
     `)}
@@ -251,7 +266,7 @@ function renderJemaat() {
       </div>
       <div class="stat green">
         <div class="stat-ico">${icon('home')}</div>
-        <div class="stat-body"><div class="stat-label">Kepala Keluarga</div><div class="stat-value">${num(kk)}</div><div class="stat-hint">${WILAYAH.length} wilayah pelayanan</div></div>
+        <div class="stat-body"><div class="stat-label">Kepala Keluarga</div><div class="stat-value">${num(kk)}</div><div class="stat-hint">${WILAYAH.length} kolom pelayanan</div></div>
       </div>
       <div class="stat gold">
         <div class="stat-ico">${icon('book')}</div>
@@ -263,6 +278,8 @@ function renderJemaat() {
       </div>
     </div>
 
+    ${birthdayWeekMiniCard()}
+
     <div class="card pad">
       <div class="filters">
         <div class="search">
@@ -270,7 +287,7 @@ function renderJemaat() {
           <input id="jemaatSearch" value="${esc(UI.jemaat.q)}" placeholder="Cari nama, keluarga, telepon, alamat…" autocomplete="off">
         </div>
         <select id="jemaatWilayah" style="width:auto;min-width:180px">
-          <option value="">Semua wilayah</option>
+          <option value="">Semua kolom</option>
           ${WILAYAH.map((w) => `<option value="${esc(w)}" ${UI.jemaat.wilayah === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}
         </select>
         <select id="jemaatKategori" style="width:auto;min-width:150px">
@@ -287,7 +304,7 @@ function renderJemaat() {
       <div class="table-scroll">
         <table class="data">
           <thead><tr>
-            <th>Nama Jemaat</th><th>Wilayah</th><th>Kategori</th><th>Usia</th><th>Kontak</th><th>Status</th><th></th>
+            <th>Nama Jemaat</th><th>Kolom</th><th>Kategori</th><th>Usia</th><th>Kontak</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
             ${list.map((j) => `
@@ -352,7 +369,7 @@ function openJemaatForm(id = '') {
       </div>
 
       <div class="form-section">
-        <div class="form-section-title">Keluarga & Wilayah</div>
+        <div class="form-section-title">Keluarga & Kolom</div>
         <div class="form-grid">
           <label class="field">Keluarga (KK)
             <input name="keluarga" value="${esc(j.keluarga || '')}" placeholder="cth: KK Tangkilisan">
@@ -360,7 +377,7 @@ function openJemaatForm(id = '') {
           <label class="field">Peran dalam Keluarga
             <select name="peranKK">${['Kepala Keluarga', 'Istri', 'Anak', 'Orang Tua', 'Lainnya'].map((p) => `<option ${j.peranKK === p ? 'selected' : ''}>${p}</option>`).join('')}</select>
           </label>
-          <label class="field">Wilayah Pelayanan
+          <label class="field">Kolom Pelayanan
             <select name="wilayah">${WILAYAH.map((w) => `<option ${j.wilayah === w ? 'selected' : ''}>${w}</option>`).join('')}</select>
           </label>
           <label class="field">Telepon / WhatsApp
@@ -450,7 +467,7 @@ function viewJemaat(id) {
         <div><small>Tanggal Lahir</small><b>${j.tglLahir ? `${dateMedium(j.tglLahir)} (${ageOf(j.tglLahir)} tahun)` : '—'}</b></div>
         <div><small>Pekerjaan</small><b>${esc(j.pekerjaan || '—')}</b></div>
         <div><small>Telepon / WhatsApp</small><b>${esc(j.telepon || '—')}</b></div>
-        <div><small>Wilayah</small><b>${esc(j.wilayah || '—')}</b></div>
+        <div><small>Kolom</small><b>${esc(j.wilayah || '—')}</b></div>
         <div class="full"><small>Alamat</small><b>${esc(j.alamat || '—')}</b></div>
         <div><small>Tanggal Baptis</small><b>${j.baptis ? dateMedium(j.baptis) : '—'}</b></div>
         <div><small>Tanggal Sidi</small><b>${j.sidi ? dateMedium(j.sidi) : '—'}</b></div>
@@ -481,7 +498,7 @@ function deleteJemaat(id) {
 
 function exportJemaatCSV() {
   const rows = [
-    ['Nama Lengkap', 'Panggilan', 'Jenis Kelamin', 'Tanggal Lahir', 'Usia', 'Kategori', 'Keluarga', 'Peran', 'Wilayah', 'Telepon', 'Pekerjaan', 'Alamat', 'Baptis', 'Sidi', 'Status', 'Catatan'],
+    ['Nama Lengkap', 'Panggilan', 'Jenis Kelamin', 'Tanggal Lahir', 'Usia', 'Kategori', 'Keluarga', 'Peran', 'Kolom', 'Telepon', 'Pekerjaan', 'Alamat', 'Baptis', 'Sidi', 'Status', 'Catatan'],
     ...DB.jemaat.map((j) => [
       j.nama, j.panggilan, j.gender === 'P' ? 'Perempuan' : 'Laki-laki', j.tglLahir, j.tglLahir ? ageOf(j.tglLahir) : '',
       j.kategori, j.keluarga, j.peranKK, j.wilayah, j.telepon, j.pekerjaan, j.alamat, j.baptis, j.sidi, j.status, j.catatan,
@@ -495,11 +512,12 @@ function exportJemaatCSV() {
    KEUANGAN
    ========================================================= */
 function filteredTransactions() {
-  const { bulan = '', jenis = '', q = '' } = UI.keuangan;
+  const { bulan = '', jenis = '', q = '', kas = '' } = UI.keuangan;
   const term = q.toLowerCase().trim();
   return DB.transaksi
     .filter((t) => {
       if (bulan && monthKeyOf(t.tanggal) !== bulan) return false;
+      if (kas && txKas(t) !== kas) return false;
       if (jenis && t.jenis !== jenis) return false;
       if (term && !`${t.keterangan} ${t.kategori} ${t.metode}`.toLowerCase().includes(term)) return false;
       return true;
@@ -509,18 +527,21 @@ function filteredTransactions() {
 
 function renderKeuangan() {
   const bulan = UI.keuangan.bulan || currentMonth();
-  const mt = monthTotals(bulan);
-  const saldo = saldoKas();
+  const kasFilter = UI.keuangan.kas || '';
+  const mt = monthTotals(bulan, kasFilter || undefined);
+  const saldo = saldoKas(kasFilter || undefined);
   const list = filteredTransactions();
   const filteredTotal = list.reduce((s, t) => s + (t.jenis === 'masuk' ? Number(t.jumlah) : -Number(t.jumlah)), 0);
   const expenseByCat = {};
   DB.transaksi.forEach((t) => {
     if (monthKeyOf(t.tanggal) !== bulan || t.jenis !== 'keluar') return;
+    if (kasFilter && txKas(t) !== kasFilter) return;
     expenseByCat[t.kategori] = (expenseByCat[t.kategori] || 0) + Number(t.jumlah);
   });
   const catList = Object.entries(expenseByCat).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const maxCat = Math.max(...catList.map((c) => c[1]), 1);
   const catColors = ['', 'green', 'gold', 'violet', 'red'];
+  const kasActive = kasFilter ? kasInfo(kasFilter) : null;
 
   return `
     ${pageHead('Administrasi Keuangan', 'Keuangan Gereja', 'Pencatatan penerimaan dan pengeluaran kas, laporan bulanan, dan transparansi persembahan jemaat.', `
@@ -532,15 +553,15 @@ function renderKeuangan() {
     <div class="stats">
       <div class="stat green">
         <div class="stat-ico">${icon('arrow-down')}</div>
-        <div class="stat-body"><div class="stat-label">Pemasukan ${monthLabel(bulan, true)}</div><div class="stat-value">${money(mt.masuk)}</div><div class="stat-hint">Persembahan & penerimaan kas</div></div>
+        <div class="stat-body"><div class="stat-label">Pemasukan ${monthLabel(bulan, true)}</div><div class="stat-value">${money(mt.masuk)}</div><div class="stat-hint">${kasActive ? esc(kasActive.nama) : 'Persembahan & penerimaan kas'}</div></div>
       </div>
       <div class="stat red">
         <div class="stat-ico">${icon('arrow-up')}</div>
-        <div class="stat-body"><div class="stat-label">Pengeluaran ${monthLabel(bulan, true)}</div><div class="stat-value">${money(mt.keluar)}</div><div class="stat-hint">Operasional & pelayanan</div></div>
+        <div class="stat-body"><div class="stat-label">Pengeluaran ${monthLabel(bulan, true)}</div><div class="stat-value">${money(mt.keluar)}</div><div class="stat-hint">${kasActive ? esc(kasActive.nama) : 'Operasional & pelayanan'}</div></div>
       </div>
       <div class="stat gold">
         <div class="stat-ico">${icon('wallet')}</div>
-        <div class="stat-body"><div class="stat-label">Saldo Kas</div><div class="stat-value">${money(saldo)}</div><div class="stat-hint">Saldo awal ${money(DB.settings.saldoAwal)}</div></div>
+        <div class="stat-body"><div class="stat-label">${kasActive ? `Saldo ${kasActive.short}` : 'Total Saldo Kas'}</div><div class="stat-value">${money(saldo)}</div><div class="stat-hint">Saldo awal ${money(saldoAwalKas(kasFilter || undefined))}</div></div>
       </div>
       <div class="stat">
         <div class="stat-ico">${icon('check')}</div>
@@ -548,13 +569,30 @@ function renderKeuangan() {
       </div>
     </div>
 
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="card-head">
+        <div><h3>Saldo per Kas</h3><p>Setiap kas dicatat terpisah. Klik kartu untuk melihat transaksi kas tersebut.</p></div>
+        <div class="head-right">
+          <button class="btn btn-outline btn-sm" data-action="kas-saldo">${icon('settings')} Atur Saldo Awal</button>
+        </div>
+      </div>
+      <div class="kas-grid">
+        ${kasSaldoList().map((k) => `
+          <button type="button" class="kas-card tone-${k.tone} ${kasFilter === k.id ? 'active' : ''}" data-action="kas-filter" data-kas="${k.id}" title="${esc(k.desc)}">
+            <span class="kas-name">${esc(k.nama)}</span>
+            <b class="kas-amount">${money(k.saldo)}</b>
+            <span class="kas-meta ${k.net < 0 ? 'neg' : ''}">${k.net >= 0 ? '+' : ''}${money(k.net)} bulan ini</span>
+          </button>`).join('')}
+      </div>
+    </div>
+
     <div class="dash-grid">
       <div class="card pad">
         <div class="card-head">
-          <div><h3>Arus Kas ${monthsBack(6).length} Bulan</h3><p>Perbandingan pemasukan dan pengeluaran</p></div>
+          <div><h3>Arus Kas ${monthsBack(6).length} Bulan${kasActive ? ` · ${esc(kasActive.short)}` : ''}</h3><p>Perbandingan pemasukan dan pengeluaran${kasActive ? ` ${esc(kasActive.nama)}` : ''}</p></div>
           <span class="badge outline">${monthLabel(currentMonth())}</span>
         </div>
-        ${financeChartHTML(6)}
+        ${financeChartHTML(6, kasFilter)}
       </div>
       <div class="card pad">
         <div class="card-head"><div><h3>Pengeluaran per Kategori</h3><p>${monthLabel(bulan)}</p></div></div>
@@ -569,6 +607,10 @@ function renderKeuangan() {
     <div class="card pad" style="margin-top:16px">
       <div class="filters">
         <input type="month" id="txMonth" value="${esc(bulan)}" style="width:auto;min-width:150px">
+        <select id="txKasFilter" style="width:auto;min-width:190px">
+          <option value="">Semua kas</option>
+          ${KAS_LIST.map((k) => `<option value="${k.id}" ${kasFilter === k.id ? 'selected' : ''}>${esc(k.nama)}</option>`).join('')}
+        </select>
         <select id="txJenisFilter" style="width:auto;min-width:140px">
           <option value="">Semua jenis</option>
           <option value="masuk" ${UI.keuangan.jenis === 'masuk' ? 'selected' : ''}>Pemasukan</option>
@@ -578,17 +620,18 @@ function renderKeuangan() {
           ${icon('search')}
           <input id="txSearch" value="${esc(UI.keuangan.q)}" placeholder="Cari keterangan atau kategori…" autocomplete="off">
         </div>
-        ${(UI.keuangan.q || UI.keuangan.jenis) ? `<button class="btn btn-ghost btn-sm" data-action="tx-reset-filter">Reset</button>` : ''}
+        ${(UI.keuangan.q || UI.keuangan.jenis || kasFilter) ? `<button class="btn btn-ghost btn-sm" data-action="tx-reset-filter">Reset</button>` : ''}
       </div>
 
       <div class="table-scroll">
         <table class="data">
-          <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Kategori</th><th>Metode</th><th class="num">Jumlah</th><th></th></tr></thead>
+          <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Kas</th><th>Kategori</th><th>Metode</th><th class="num">Jumlah</th><th></th></tr></thead>
           <tbody>
             ${list.map((t) => `
               <tr>
                 <td><span class="mini-tag">${dateShort(t.tanggal)}</span></td>
-                <td><div class="cell-main"><div><b>${esc(t.keterangan)}</b><small>${t.jenis === 'masuk' ? 'Penerimaan kas' : 'Pengeluaran kas'}</small></div></div></td>
+                <td><div class="cell-main"><div><b>${esc(t.keterangan)}</b><small>${t.jenis === 'masuk' ? 'Penerimaan' : 'Pengeluaran'} · ${esc(kasInfo(txKas(t)).nama)}</small></div></div></td>
+                <td><span class="badge ${kasInfo(txKas(t)).tone}">${esc(kasInfo(txKas(t)).short)}</span></td>
                 <td><span class="badge ${t.jenis === 'masuk' ? 'green' : 'red'}">${esc(t.kategori)}</span></td>
                 <td><span class="mini-tag">${esc(t.metode)}</span></td>
                 <td class="num ${t.jenis === 'masuk' ? 'money-in' : 'money-out'}">${t.jenis === 'masuk' ? '+' : '−'}${money(t.jumlah)}</td>
@@ -612,9 +655,10 @@ function txCategoryOptions(jenis, selected = '') {
 function openTxForm(id = '') {
   const t = DB.transaksi.find((x) => x.id === id) || {};
   const jenis = t.jenis || 'masuk';
+  const kas = t.kas || UI.keuangan.kas || 'jemaat';
   openModal({
     title: id ? 'Edit Transaksi' : 'Tambah Transaksi',
-    subtitle: 'Catat penerimaan atau pengeluaran kas gereja.',
+    subtitle: 'Catat penerimaan atau pengeluaran pada kas yang sesuai.',
     body: `<form id="txForm" data-id="${esc(id)}">
       <div class="form-grid">
         <label class="field">Tanggal <span class="req">*</span>
@@ -626,20 +670,25 @@ function openTxForm(id = '') {
             <option value="keluar" ${jenis === 'keluar' ? 'selected' : ''}>Pengeluaran</option>
           </select>
         </label>
+        <label class="field">Kas / Pos <span class="req">*</span>
+          <select name="kas">
+            ${KAS_LIST.map((k) => `<option value="${k.id}" ${kas === k.id ? 'selected' : ''}>${esc(k.nama)}</option>`).join('')}
+          </select>
+        </label>
         <label class="field">Kategori
           <select name="kategori" id="txKategori">${txCategoryOptions(jenis, t.kategori)}</select>
         </label>
         <label class="field">Metode
           <select name="metode">${METODE_BAYAR.map((m) => `<option ${t.metode === m ? 'selected' : ''}>${m}</option>`).join('')}</select>
         </label>
+        <label class="field">Jumlah (Rp) <span class="req">*</span>
+          <input type="number" name="jumlah" min="0" step="1000" required value="${t.jumlah || ''}" placeholder="cth: 4850000">
+        </label>
         <label class="field span2">Keterangan <span class="req">*</span>
           <input name="keterangan" required value="${esc(t.keterangan || '')}" placeholder="cth: Persembahan ibadah Minggu I">
         </label>
-        <label class="field span2">Jumlah (Rp) <span class="req">*</span>
-          <input type="number" name="jumlah" min="0" step="1000" required value="${t.jumlah || ''}" placeholder="cth: 4850000">
-        </label>
       </div>
-      <p class="form-note">${icon('alert')} Pastikan nominal dan keterangan sesuai dengan bukti penerimaan/pengeluaran.</p>
+      <p class="form-note">${icon('alert')} Pilih kas yang tepat agar laporan saldo per kas tetap akurat.</p>
       <div class="form-actions">
         <button type="button" class="btn btn-outline" data-action="modal-close">Batal</button>
         <button type="submit" class="btn btn-primary">${icon('check')} Simpan Transaksi</button>
@@ -665,6 +714,7 @@ function saveTxForm(form) {
   const data = {
     tanggal: fd.get('tanggal') || todayISO(),
     jenis: fd.get('jenis') || 'masuk',
+    kas: KAS_IDS.includes(fd.get('kas')) ? fd.get('kas') : 'jemaat',
     kategori: fd.get('kategori') || 'Lainnya',
     keterangan,
     jumlah,
@@ -702,22 +752,32 @@ function deleteTx(id) {
 function exportTxCSV() {
   const list = filteredTransactions();
   const rows = [
-    ['Tanggal', 'Jenis', 'Kategori', 'Keterangan', 'Metode', 'Jumlah'],
-    ...list.map((t) => [t.tanggal, t.jenis === 'masuk' ? 'Pemasukan' : 'Pengeluaran', t.kategori, t.keterangan, t.metode, t.jumlah]),
+    ['Tanggal', 'Kas', 'Jenis', 'Kategori', 'Keterangan', 'Metode', 'Jumlah'],
+    ...list.map((t) => [t.tanggal, kasInfo(txKas(t)).nama, t.jenis === 'masuk' ? 'Pemasukan' : 'Pengeluaran', t.kategori, t.keterangan, t.metode, t.jumlah]),
   ];
-  downloadCSV(`Keuangan-Maranatha-${UI.keuangan.bulan || currentMonth()}.csv`, rows);
+  const suffix = UI.keuangan.kas ? `-${kasInfo(UI.keuangan.kas).short}` : '';
+  downloadCSV(`Keuangan-Maranatha-${UI.keuangan.bulan || currentMonth()}${suffix}.csv`, rows);
   toast('Transaksi keuangan diekspor ke CSV.');
 }
 
 function printFinanceReport() {
   const bulan = UI.keuangan.bulan || currentMonth();
-  const list = DB.transaksi.filter((t) => monthKeyOf(t.tanggal) === bulan).sort((a, b) => a.tanggal.localeCompare(b.tanggal));
+  const kasFilter = UI.keuangan.kas || '';
+  const kasActive = kasFilter ? kasInfo(kasFilter) : null;
+  const list = DB.transaksi
+    .filter((t) => monthKeyOf(t.tanggal) === bulan && (!kasFilter || txKas(t) === kasFilter))
+    .sort((a, b) => a.tanggal.localeCompare(b.tanggal));
   const masuk = list.filter((t) => t.jenis === 'masuk');
   const keluar = list.filter((t) => t.jenis === 'keluar');
   const totalMasuk = masuk.reduce((s, t) => s + Number(t.jumlah), 0);
   const totalKeluar = keluar.reduce((s, t) => s + Number(t.jumlah), 0);
-  const saldo = saldoKas();
-  const rows = (arr) => arr.map((t, i) => `<tr><td>${i + 1}</td><td>${esc(t.keterangan)}</td><td>${esc(t.kategori)}</td><td>${esc(t.metode)}</td><td class="num">${num(t.jumlah)}</td></tr>`).join('');
+  const saldo = saldoKas(kasFilter || undefined);
+  const allMonth = monthTotals(bulan);
+  const rows = (arr) => arr.map((t, i) => `<tr><td>${i + 1}</td><td>${esc(t.keterangan)}</td><td>${esc(kasInfo(txKas(t)).short)}</td><td>${esc(t.kategori)}</td><td>${esc(t.metode)}</td><td class="num">${num(t.jumlah)}</td></tr>`).join('');
+  const kasRows = KAS_LIST.map((k) => {
+    const kmt = monthTotals(bulan, k.id);
+    return `<tr${kasFilter === k.id ? ' style="background:#f5f8fc"' : ''}><td>${esc(k.nama)}</td><td class="num">${num(saldoAwalKas(k.id))}</td><td class="num">${num(kmt.masuk)}</td><td class="num">${num(kmt.keluar)}</td><td class="num"><b>${num(saldoKas(k.id))}</b></td></tr>`;
+  }).join('');
   printHTML(`
     <div class="print-doc">
       <div class="print-head">
@@ -728,36 +788,69 @@ function printFinanceReport() {
         </div>
       </div>
       <h2>Laporan Keuangan Bulanan</h2>
-      <p class="print-sub">Bulan ${monthLabel(bulan)} · Dicetak ${dateLong(todayISO())}</p>
+      <p class="print-sub">Bulan ${monthLabel(bulan)}${kasActive ? ` · ${esc(kasActive.nama)}` : ' · Semua Kas'} · Dicetak ${dateLong(todayISO())}</p>
 
       <h3>1. Penerimaan</h3>
-      <table><thead><tr><th style="width:32px">No</th><th>Uraian</th><th>Kategori</th><th>Metode</th><th class="num" style="width:120px">Jumlah (Rp)</th></tr></thead>
-        <tbody>${masuk.length ? rows(masuk) : '<tr><td colspan="5">Tidak ada penerimaan pada bulan ini.</td></tr>'}
-        <tr class="total"><td colspan="4">TOTAL PENERIMAAN</td><td class="num">${num(totalMasuk)}</td></tr></tbody>
+      <table><thead><tr><th style="width:32px">No</th><th>Uraian</th><th>Kas</th><th>Kategori</th><th>Metode</th><th class="num" style="width:110px">Jumlah (Rp)</th></tr></thead>
+        <tbody>${masuk.length ? rows(masuk) : '<tr><td colspan="6">Tidak ada penerimaan pada bulan ini.</td></tr>'}
+        <tr class="total"><td colspan="5">TOTAL PENERIMAAN</td><td class="num">${num(totalMasuk)}</td></tr></tbody>
       </table>
 
       <h3>2. Pengeluaran</h3>
-      <table><thead><tr><th style="width:32px">No</th><th>Uraian</th><th>Kategori</th><th>Metode</th><th class="num" style="width:120px">Jumlah (Rp)</th></tr></thead>
-        <tbody>${keluar.length ? rows(keluar) : '<tr><td colspan="5">Tidak ada pengeluaran pada bulan ini.</td></tr>'}
-        <tr class="total"><td colspan="4">TOTAL PENGELUARAN</td><td class="num">${num(totalKeluar)}</td></tr></tbody>
+      <table><thead><tr><th style="width:32px">No</th><th>Uraian</th><th>Kas</th><th>Kategori</th><th>Metode</th><th class="num" style="width:110px">Jumlah (Rp)</th></tr></thead>
+        <tbody>${keluar.length ? rows(keluar) : '<tr><td colspan="6">Tidak ada pengeluaran pada bulan ini.</td></tr>'}
+        <tr class="total"><td colspan="5">TOTAL PENGELUARAN</td><td class="num">${num(totalKeluar)}</td></tr></tbody>
       </table>
 
-      <h3>3. Ringkasan Kas</h3>
+      <h3>3. Saldo per Kas</h3>
       <table>
+        <thead><tr><th>Kas / Pos</th><th class="num">Saldo Awal</th><th class="num">Penerimaan Bulan Ini</th><th class="num">Pengeluaran Bulan Ini</th><th class="num">Saldo Saat Ini</th></tr></thead>
         <tbody>
-          <tr><td>Saldo awal (${money(DB.settings.saldoAwal)})</td><td class="num">${num(DB.settings.saldoAwal)}</td></tr>
-          <tr><td>Total penerimaan bulan ini</td><td class="num">${num(totalMasuk)}</td></tr>
-          <tr><td>Total pengeluaran bulan ini</td><td class="num">${num(totalKeluar)}</td></tr>
-          <tr class="total"><td>Saldo kas saat ini</td><td class="num">${num(saldo)}</td></tr>
+          ${kasRows}
+          <tr class="total"><td>TOTAL</td><td class="num">${num(saldoAwalKas())}</td><td class="num">${num(allMonth.masuk)}</td><td class="num">${num(allMonth.keluar)}</td><td class="num">${num(saldoKas())}</td></tr>
         </tbody>
       </table>
-      <p style="font-size:9px;color:#6b768c">Laporan ini disusun berdasarkan pencatatan transaksi pada sistem informasi jemaat. Audit internal dilakukan oleh Majelis Jemaat setiap akhir bulan.</p>
+      <p style="font-size:9px;color:#6b768c">${kasActive ? `Saldo ${esc(kasActive.nama)} saat ini: <b>${money(saldo)}</b>. ` : ''}Laporan ini disusun berdasarkan pencatatan transaksi pada sistem informasi jemaat. Audit internal dilakukan oleh Majelis Jemaat setiap akhir bulan.</p>
 
       <div class="print-sign">
         <div>Mengetahui,<br>Ketua Majelis Jemaat<div class="line">${esc((DB.struktur.find((s) => s.jabatan === 'Ketua Majelis') || {}).nama || '________________')}</div></div>
         <div>Tolitoli, ${dateMedium(todayISO())}<br>Bendahara<div class="line">${esc((DB.struktur.find((s) => /Bendahara/.test(s.jabatan)) || {}).nama || '________________')}</div></div>
       </div>
     </div>`);
+}
+
+function openSaldoKasForm() {
+  const map = DB.settings.saldoAwalKas || {};
+  openModal({
+    title: 'Saldo Awal per Kas',
+    subtitle: 'Saldo sebelum transaksi yang tercatat di aplikasi. Total dihitung otomatis.',
+    wide: true,
+    body: `<form id="saldoKasForm">
+      <div class="form-grid">
+        ${KAS_LIST.map((k) => `
+          <label class="field">${esc(k.nama)}
+            <input type="number" name="kas_${k.id}" min="0" step="1000" value="${Number(map[k.id]) || 0}">
+          </label>`).join('')}
+      </div>
+      <p class="form-note">${icon('alert')} Saldo awal dipakai sebagai titik mulai perhitungan pada masing-masing kas. Perubahan tidak memengaruhi transaksi yang sudah tercatat.</p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" data-action="modal-close">Batal</button>
+        <button type="submit" class="btn btn-primary">${icon('check')} Simpan Saldo Awal</button>
+      </div>
+    </form>`,
+  });
+}
+
+function saveSaldoKasForm(form) {
+  const fd = new FormData(form);
+  const map = {};
+  KAS_LIST.forEach((k) => { map[k.id] = Math.max(0, Number(fd.get(`kas_${k.id}`)) || 0); });
+  DB.settings.saldoAwalKas = map;
+  DB.settings.saldoAwal = totalSaldoAwal();
+  saveDB();
+  closeModal();
+  rerender({ keepScroll: true });
+  toast('Saldo awal per kas disimpan.');
 }
 
 /* =========================================================
@@ -773,6 +866,89 @@ function wartaBadgeTone(cat) {
   return { Ibadah: 'green', Kegiatan: 'violet', Diakonia: 'amber', Keuangan: 'blue', 'Ulang Tahun': 'gold', Umum: 'gray' }[cat] || 'gray';
 }
 
+/* ---------------- Rekap ulang tahun pekan berjalan ---------------- */
+function birthdayWeekText(refISO = todayISO()) {
+  const { start, end } = weekRangeISO(refISO);
+  const list = birthdaysThisWeek(refISO);
+  const head = `Tuhan memberkati jemaat yang berulang tahun pada pekan ini (${dateMedium(start)} – ${dateMedium(end)}):`;
+  if (!list.length) return `${head}\n\nTidak ada jemaat yang berulang tahun pada pekan ini.`;
+  const lines = list.map((j) => `• ${dayName(j.ulangTahunISO)}, ${dateMedium(j.ulangTahunISO)} — ${j.nama} (${j.usiaBaru} tahun) — ${j.wilayah}`);
+  return `${head}\n\n${lines.join('\n')}\n\nMajelis jemaat mengucapkan selamat ulang tahun dan mendoakan agar senantiasa bertumbuh dalam kasih Kristus. Tuhan Yesus memberkati.`;
+}
+
+function birthdayWeekListHTML(list, compact = false) {
+  if (!list.length) {
+    return `<p class="bweek-empty">${icon('star')} Tidak ada jemaat yang berulang tahun pada pekan ini.</p>`;
+  }
+  return `<div class="bweek-list${compact ? ' compact' : ''}">
+    ${list.map((j) => `
+      <div class="bweek-item">
+        <div class="bweek-date"><b>${parseISO(j.ulangTahunISO).getDate()}</b><span>${MONTHS_SHORT[parseISO(j.ulangTahunISO).getMonth()]}</span></div>
+        <div class="bweek-body">
+          ${avatarHTML(j.nama, 'avatar-sm')}
+          <div>
+            <b>${esc(j.nama)}</b>
+            <small>${dayName(j.ulangTahunISO)} · ${j.usiaBaru} tahun · ${esc(j.keluarga || j.wilayah)}</small>
+          </div>
+        </div>
+        <span class="badge ${j.kategori ? 'gray' : 'outline'}">${esc(j.kategori || 'Jemaat')}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
+function birthdayWeekCard() {
+  const { start, end } = weekRangeISO();
+  const list = birthdaysThisWeek();
+  return `<div class="card pad bweek-card">
+    <div class="card-head">
+      <div>
+        <h3>${icon('star')} Ulang Tahun Jemaat Pekan Ini</h3>
+        <p>${dateLong(start)} – ${dateLong(end)} · ${list.length} jemaat berulang tahun</p>
+      </div>
+      <div class="head-right">
+        <button class="btn btn-outline btn-sm" data-action="birthday-copy">${icon('file')} Salin Rekap</button>
+        <button class="btn btn-primary btn-sm" data-action="warta-birthday">${icon('plus')} Jadikan Warta</button>
+      </div>
+    </div>
+    ${birthdayWeekListHTML(list)}
+    <p class="form-note">Rekap otomatis dari tanggal lahir jemaat aktif pada pekan berjalan (Minggu–Sabtu). Klik <b>Jadikan Warta</b> untuk mengisi warta ulang tahun tanpa mengetik ulang, atau <b>Salin Rekap</b> untuk ditempel ke WhatsApp.</p>
+  </div>`;
+}
+
+function copyBirthdayRecap() {
+  const text = birthdayWeekText();
+  const done = () => toast('Rekap ulang tahun pekan ini disalin.');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (err) { toast('Gagal menyalin rekap.', 'error'); }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+function birthdayWeekMiniCard() {
+  const { start, end } = weekRangeISO();
+  const list = birthdaysThisWeek();
+  return `<div class="card pad bweek-card mini" style="margin-bottom:16px">
+    <div class="card-head" style="margin-bottom:10px">
+      <div><h3>Ulang Tahun Pekan Ini</h3><p>${dateMedium(start)} – ${dateMedium(end)}</p></div>
+      <a class="link" href="#/warta">Buat warta ${icon('chevron-right')}</a>
+    </div>
+    ${list.length
+      ? `<div class="bweek-pills">${list.map((j) => `<span class="bweek-pill">${icon('star')}<b>${esc(j.panggilan || j.nama)}</b> ${dayName(j.ulangTahunISO)} · ${j.usiaBaru} th</span>`).join('')}</div>`
+      : `<p class="bweek-empty">${icon('star')} Tidak ada jemaat yang berulang tahun pada pekan ini.</p>`}
+  </div>`;
+}
+
 function renderWarta() {
   const list = filteredWarta();
   return `
@@ -781,6 +957,8 @@ function renderWarta() {
       <button class="btn btn-outline" data-action="warta-pptx">${icon('download')} Unduh PPTX</button>
       <button class="btn btn-primary" data-action="warta-present">${icon('play')} Mode Slide</button>
     `)}
+
+    <div style="margin-bottom:16px">${birthdayWeekCard()}</div>
 
     <div class="filter-chips">
       <button class="chip ${!UI.warta.kategori ? 'active' : ''}" data-action="warta-filter" data-kategori="">Semua <span class="count">${DB.warta.length}</span></button>
@@ -826,8 +1004,8 @@ function renderWarta() {
     </div>`;
 }
 
-function openWartaForm(id = '') {
-  const w = DB.warta.find((x) => x.id === id) || {};
+function openWartaForm(id = '', preset = null) {
+  const w = DB.warta.find((x) => x.id === id) || preset || {};
   openModal({
     title: id ? 'Edit Warta' : 'Tambah Warta Jemaat',
     subtitle: 'Informasi akan muncul di halaman warta dan slide proyektor.',
@@ -926,6 +1104,8 @@ function printWarta() {
   const jadwal = sortedJadwal(true).slice(0, 3);
   const kegiatan = sortedKegiatan().filter((k) => k.tanggal >= todayISO()).slice(0, 6);
   const mt = monthTotals(currentMonth());
+  const bweek = birthdaysThisWeek();
+  const bweekRange = weekRangeISO();
   printHTML(`
     <div class="print-doc">
       <div class="print-head">
@@ -945,6 +1125,14 @@ function printWarta() {
           <h4>${esc(w.judul)}</h4>
           <p>${esc(w.isi)}</p>
         </div>`).join('')}
+
+      <h3>Ulang Tahun Jemaat Pekan Ini (${dateMedium(bweekRange.start)} – ${dateMedium(bweekRange.end)})</h3>
+      <table>
+        <thead><tr><th style="width:30px">No</th><th>Hari / Tanggal</th><th>Nama Jemaat</th><th>Usia</th><th>Kolom</th></tr></thead>
+        <tbody>${bweek.length
+          ? bweek.map((j, i) => `<tr><td>${i + 1}</td><td>${dayName(j.ulangTahunISO)}, ${dateMedium(j.ulangTahunISO)}</td><td>${esc(j.nama)}</td><td>${j.usiaBaru} th</td><td>${esc(j.wilayah)}</td></tr>`).join('')
+          : '<tr><td colspan="5">Tidak ada jemaat yang berulang tahun pada pekan ini.</td></tr>'}</tbody>
+      </table>
 
       <div class="print-two" style="margin-top:18px">
         <div>
@@ -1300,7 +1488,7 @@ function openKegiatanForm(id = '') {
     body: `<form id="kegiatanForm" data-id="${esc(id)}">
       <div class="form-grid">
         <label class="field span2">Nama Kegiatan <span class="req">*</span>
-          <input name="nama" required value="${esc(k.nama || '')}" placeholder="cth: Ibadah Rumah Tangga Wilayah I">
+          <input name="nama" required value="${esc(k.nama || '')}" placeholder="cth: Ibadah Rumah Tangga Kolom 1">
         </label>
         <label class="field">Tanggal <span class="req">*</span>
           <input type="date" name="tanggal" required value="${esc(k.tanggal || dateFromToday(7))}">
@@ -1314,7 +1502,7 @@ function openKegiatanForm(id = '') {
         <label class="field">Kategori
           <input name="kategori" value="${esc(k.kategori || 'Kegiatan')}" placeholder="cth: Komisi Pemuda" list="kategoriKegiatanList">
           <datalist id="kategoriKegiatanList">
-            ${['Ibadah Wilayah', 'Komisi Wanita', 'Komisi Pemuda', 'Komisi Anak', 'Musik & Pujian', 'Diakonia', 'Rapat', 'Kegiatan'].map((x) => `<option value="${x}"></option>`).join('')}
+            ${['Ibadah Kolom', 'Komisi Wanita', 'Komisi Pemuda', 'Komisi Anak', 'Musik & Pujian', 'Diakonia', 'Rapat', 'Kegiatan'].map((x) => `<option value="${x}"></option>`).join('')}
           </datalist>
         </label>
         <label class="field span2">Penanggung Jawab
@@ -1545,6 +1733,9 @@ function deleteOrg(id) {
    ========================================================= */
 function renderPengaturan() {
   const s = DB.settings;
+  const auth = typeof authRead === 'function' ? authRead() : null;
+  const authDefault = !auth || auth.isDefault;
+  const installed = typeof pwaStandalone === 'function' ? pwaStandalone() : false;
   const size = (() => {
     try { return new Blob([JSON.stringify(DB)]).size; } catch (e) { return 0; }
   })();
@@ -1577,10 +1768,12 @@ function renderPengaturan() {
             <label class="field">Jadwal Ibadah
               <input name="ibadah" value="${esc(s.ibadah)}" placeholder="cth: Minggu, 09.00 WITA">
             </label>
-            <label class="field span2">Saldo Awal Kas (Rp)
-              <input type="number" name="saldoAwal" min="0" step="1000" value="${Number(s.saldoAwal) || 0}">
-              <span class="hint-text">Saldo kas sebelum transaksi yang tercatat di aplikasi.</span>
-            </label>
+            <div class="span2" style="border-top:1px dashed var(--line);padding-top:14px;margin-top:2px">
+              <div class="form-section-title" style="margin-bottom:6px">Kas & Saldo Awal</div>
+              <div class="info-row"><span>Total saldo awal ${KAS_LIST.length} kas</span><b>${money(saldoAwalKas())}</b></div>
+              <p class="form-note" style="margin-top:6px">Saldo awal dicatat terpisah untuk Kas Jemaat, Kas Kolom 1–5, Kas Komisi Duka, dan Kas Komisi Pembangunan.</p>
+              <button type="button" class="btn btn-outline btn-sm" data-action="kas-saldo">${icon('settings')} Atur Saldo Awal per Kas</button>
+            </div>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary">${icon('check')} Simpan Pengaturan</button>
@@ -1597,8 +1790,22 @@ function renderPengaturan() {
           <div class="info-row"><span>Warta jemaat</span><b>${num(DB.warta.length)} warta</b></div>
           <div class="info-row"><span>Jadwal pelayanan</span><b>${num(DB.jadwal.length)} jadwal</b></div>
           <div class="info-row"><span>Kegiatan</span><b>${num(DB.kegiatan.length)} kegiatan</b></div>
+          <div class="info-row"><span>Data aset gereja</span><b>${num(DB.aset.length)} jenis</b></div>
           <div class="info-row"><span>Ukuran data</span><b>${(size / 1024).toFixed(1)} KB</b></div>
           <div class="info-row"><span>Terakhir diubah</span><b>${DB.meta.updatedAt ? dateMedium(DB.meta.updatedAt.slice(0, 10)) : '—'}</b></div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head">
+            <div><h3>Aplikasi & Perangkat</h3><p>Pasang di HP / laptop & tampilan layar penuh</p></div>
+            <span class="badge ${installed ? 'green' : 'gray'}" data-pwa-state>${installed ? 'Terpasang' : 'Belum dipasang'}</span>
+          </div>
+          <div class="data-btn-grid">
+            <button class="btn btn-primary" data-action="install-app" data-pwa-install>${icon('download')} Pasang Aplikasi</button>
+            <button class="btn btn-outline" data-action="toggle-fullscreen">${icon('maximize')} <span data-pwa-fullscreen-label>Layar Penuh</span></button>
+          </div>
+          <div class="detail-note hidden" data-pwa-installed style="margin-top:10px">${icon('check')} Aplikasi sudah terpasang di perangkat ini. Buka lewat ikon <b>Maranatha</b> di layar utama atau menu aplikasi.</div>
+          <p class="form-note">Di HP: buka menu browser → <b>Tambahkan ke layar utama</b>. Di laptop: klik ikon instal di address bar, lalu sematkan ke taskbar. Setelah terpasang, aplikasi bisa dibuka tanpa internet.</p>
         </div>
 
         <div class="card pad">
@@ -1611,6 +1818,37 @@ function renderPengaturan() {
           <p class="form-note">Gunakan fitur ini untuk memindahkan data ke komputer lain atau mencadangkan data sebelum memperbarui aplikasi.</p>
         </div>
 
+        <div class="card pad">
+          <div class="card-head">
+            <div><h3>Keamanan Aplikasi</h3><p>Kunci akses administrator</p></div>
+            <span class="badge ${authDefault ? 'amber' : 'green'}">${authDefault ? 'Sandi bawaan' : 'Aktif'}</span>
+          </div>
+          <div class="info-row"><span>Status kunci</span><b>Aktif saat aplikasi dibuka</b></div>
+          <div class="info-row"><span>Terakhir diubah</span><b>${auth && auth.updatedAt ? dateMedium(auth.updatedAt.slice(0, 10)) : '—'}</b></div>
+          ${authDefault ? `<div class="detail-note" style="margin-top:10px">${icon('alert')} Anda masih memakai kata sandi bawaan. Segera ganti melalui formulir di bawah ini.</div>` : ''}
+          <form id="passwordForm" style="margin-top:14px" autocomplete="off">
+            <div class="form-grid">
+              <label class="field span2">Kata sandi saat ini
+                <span class="pw-field">
+                  <input type="password" name="current" required autocomplete="current-password" placeholder="Kata sandi yang dipakai sekarang">
+                  <button type="button" class="pw-toggle" data-action="auth-toggle-pw" aria-label="Tampilkan kata sandi">${icon('eye')}</button>
+                </span>
+              </label>
+              <label class="field">Kata sandi baru
+                <input type="password" name="next" required minlength="6" autocomplete="new-password" placeholder="Minimal 6 karakter">
+              </label>
+              <label class="field">Ulangi kata sandi baru
+                <input type="password" name="confirm" required minlength="6" autocomplete="new-password" placeholder="Ulangi kata sandi baru">
+              </label>
+            </div>
+            <div class="form-actions" style="justify-content:space-between">
+              <button type="button" class="btn btn-outline btn-sm" data-action="lock-app">${icon('lock')} Kunci Sekarang</button>
+              <button type="submit" class="btn btn-primary btn-sm">${icon('check')} Simpan Kata Sandi</button>
+            </div>
+          </form>
+          <p class="form-note">Kata sandi disimpan dalam bentuk hash di perangkat ini dan tidak ikut terekspor bersama data jemaat. Jika lupa, teknisi dapat menghapus kunci login tanpa menghapus data.</p>
+        </div>
+
         <div class="danger-zone">
           <b>${icon('alert')} Kembalikan Data Contoh</b>
           <p>Menghapus seluruh data saat ini dan mengembalikan data contoh awal. Ekspor cadangan terlebih dahulu.</p>
@@ -1620,11 +1858,13 @@ function renderPengaturan() {
     </div>
 
     <div class="card pad" style="margin-top:16px">
-      <div class="card-head"><div><h3>Tentang Aplikasi</h3><p>Sistem Informasi Jemaat Gereja Maranatha Tolitoli</p></div><span class="badge outline">v1.0</span></div>
+      <div class="card-head"><div><h3>Tentang Aplikasi</h3><p>Sistem Informasi Jemaat Gereja Maranatha Tolitoli</p></div><span class="badge outline">v1.3</span></div>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;margin:0">
         Aplikasi ini berjalan sepenuhnya luring (offline) di browser dan menyimpan data pada <b>localStorage</b> perangkat.
-        Fitur: data jemaat, keuangan, tata ibadah dengan mode slide dan ekspor PowerPoint, warta jemaat (slide & cetak),
-        jadwal pelayanan pendeta & majelis, kegiatan jemaat, dan struktur organisasi.
+        Dapat dipasang di HP dan laptop (PWA) serta dibuka layar penuh tanpa koneksi internet.
+        Fitur: kunci akses administrator, data jemaat, keuangan, tata ibadah dengan mode slide dan ekspor PowerPoint, warta jemaat (slide & cetak),
+        rekap ulang tahun jemaat pekan berjalan, jadwal pelayanan pendeta & majelis, kegiatan jemaat, struktur organisasi,
+        serta data aset dan inventaris gereja.
         Data contoh disediakan untuk memudahkan penyesuaian. Ganti data contoh dengan data jemaat yang sebenarnya melalui menu masing-masing.
       </p>
     </div>`;
@@ -1641,9 +1881,320 @@ function saveSettingsForm(form) {
     email: String(fd.get('email') || '').trim(),
     pendeta: String(fd.get('pendeta') || '').trim(),
     ibadah: String(fd.get('ibadah') || '').trim(),
-    saldoAwal: Number(fd.get('saldoAwal') || 0),
+    saldoAwal: saldoAwalKas(),
+    saldoAwalKas: DB.settings.saldoAwalKas,
   };
   saveDB();
   rerender({ keepScroll: true });
   toast('Pengaturan gereja disimpan.');
+}
+
+/* =========================================================
+   DATA ASET GEREJA
+   ========================================================= */
+function kondisiAsetTone(kondisi) {
+  return { Baik: 'green', 'Rusak Ringan': 'amber', 'Rusak Berat': 'red' }[kondisi] || 'gray';
+}
+
+function filteredAset() {
+  const { q = '', kategori = '', kondisi = '' } = UI.aset;
+  const term = q.toLowerCase().trim();
+  return sortedAset().filter((a) => {
+    if (kategori && a.kategori !== kategori) return false;
+    if (kondisi && a.kondisi !== kondisi) return false;
+    if (term && !`${a.nama} ${a.kategori} ${a.lokasi} ${a.penanggungjawab} ${a.catatan}`.toLowerCase().includes(term)) return false;
+    return true;
+  });
+}
+
+function renderAset() {
+  const list = filteredAset();
+  const totalUnit = DB.aset.reduce((s, a) => s + (Number(a.jumlah) || 0), 0);
+  const totalNilai = totalNilaiAset();
+  const baik = DB.aset.filter((a) => a.kondisi === 'Baik').length;
+  const ringan = DB.aset.filter((a) => a.kondisi === 'Rusak Ringan').length;
+  const berat = DB.aset.filter((a) => a.kondisi === 'Rusak Berat').length;
+  const listUnit = list.reduce((s, a) => s + (Number(a.jumlah) || 0), 0);
+  const listNilai = totalNilaiAset(list);
+
+  return `
+    ${pageHead('Inventaris Jemaat', 'Data Aset Gereja', 'Pencatatan tanah, bangunan, kendaraan, peralatan ibadah, dan inventaris gereja beserta nilai perolehan dan kondisinya.', `
+      <button class="btn btn-outline" data-action="aset-print">${icon('print')} Cetak Daftar</button>
+      <button class="btn btn-outline" data-action="aset-export">${icon('download')} Ekspor CSV</button>
+      <button class="btn btn-primary" data-action="aset-add">${icon('plus')} Tambah Aset</button>
+    `)}
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-ico">${icon('box')}</div>
+        <div class="stat-body">
+          <div class="stat-label">Jumlah Aset</div>
+          <div class="stat-value">${num(totalUnit)} <span style="font-size:11px;font-weight:600;color:var(--muted)">unit</span></div>
+          <div class="stat-hint">${num(DB.aset.length)} jenis aset tercatat</div>
+        </div>
+      </div>
+      <div class="stat green">
+        <div class="stat-ico">${icon('wallet')}</div>
+        <div class="stat-body">
+          <div class="stat-label">Nilai Perolehan</div>
+          <div class="stat-value sm">${money(totalNilai)}</div>
+          <div class="stat-hint">Akumulasi seluruh aset</div>
+        </div>
+      </div>
+      <div class="stat gold">
+        <div class="stat-ico">${icon('check')}</div>
+        <div class="stat-body">
+          <div class="stat-label">Kondisi Baik</div>
+          <div class="stat-value">${num(baik)}</div>
+          <div class="stat-hint">${DB.aset.length ? Math.round((baik / DB.aset.length) * 100) : 0}% dari jenis aset</div>
+        </div>
+      </div>
+      <div class="stat red">
+        <div class="stat-ico">${icon('alert')}</div>
+        <div class="stat-body">
+          <div class="stat-label">Perlu Perhatian</div>
+          <div class="stat-value">${num(ringan + berat)}</div>
+          <div class="stat-hint">${num(ringan)} rusak ringan · ${num(berat)} rusak berat</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card pad">
+      <div class="filters">
+        <div class="search">
+          ${icon('search')}
+          <input id="asetSearch" value="${esc(UI.aset.q)}" placeholder="Cari nama aset, lokasi, penanggung jawab…" autocomplete="off">
+        </div>
+        <select id="asetKategori" style="width:auto;min-width:190px">
+          <option value="">Semua kategori</option>
+          ${KATEGORI_ASET.map((k) => `<option value="${esc(k)}" ${UI.aset.kategori === k ? 'selected' : ''}>${esc(k)}</option>`).join('')}
+        </select>
+        <select id="asetKondisi" style="width:auto;min-width:150px">
+          <option value="">Semua kondisi</option>
+          ${KONDISI_ASET.map((k) => `<option value="${esc(k)}" ${UI.aset.kondisi === k ? 'selected' : ''}>${esc(k)}</option>`).join('')}
+        </select>
+        ${(UI.aset.q || UI.aset.kategori || UI.aset.kondisi) ? `<button class="btn btn-ghost btn-sm" data-action="aset-reset-filter">Reset</button>` : ''}
+      </div>
+
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr>
+            <th>Nama Aset</th><th>Kategori</th><th>Jumlah</th><th>Kondisi</th><th>Lokasi</th><th class="num">Nilai Perolehan</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${list.map((a) => `
+              <tr>
+                <td>
+                  <div class="cell-main">
+                    <span class="aset-ico">${icon('box')}</span>
+                    <div><b>${esc(a.nama)}</b><small>${esc(a.penanggungjawab ? `PJ: ${a.penanggungjawab}` : (a.catatan || '—'))}</small></div>
+                  </div>
+                </td>
+                <td><span class="badge blue">${esc(a.kategori)}</span></td>
+                <td>${num(a.jumlah)} ${esc(a.satuan || 'unit')}</td>
+                <td><span class="badge ${kondisiAsetTone(a.kondisi)}">${esc(a.kondisi)}</span></td>
+                <td><span class="mini-tag">${icon('pin')} ${esc(a.lokasi || '—')}</span></td>
+                <td class="num">${money(nilaiAset(a))}</td>
+                <td class="actions">
+                  <button class="icon-btn" data-action="aset-view" data-id="${a.id}" title="Lihat detail">${icon('eye')}</button>
+                  <button class="icon-btn" data-action="aset-edit" data-id="${a.id}" title="Edit">${icon('edit')}</button>
+                  <button class="icon-btn danger" data-action="aset-delete" data-id="${a.id}" title="Hapus">${icon('trash')}</button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${list.length
+        ? `<div class="table-foot"><span>Menampilkan <b>${list.length}</b> dari ${DB.aset.length} jenis aset · ${num(listUnit)} unit</span><span>Total nilai: <b>${money(listNilai)}</b></span></div>`
+        : emptyState('Belum ada data aset', 'Tambahkan aset gereja atau ubah filter pencarian.', 'box')}
+    </div>`;
+}
+
+function openAsetForm(id = '') {
+  const a = DB.aset.find((x) => x.id === id) || {};
+  const isEdit = Boolean(id);
+  openModal({
+    title: isEdit ? 'Edit Data Aset' : 'Tambah Data Aset',
+    subtitle: 'Inventaris properti dan perlengkapan gereja.',
+    wide: true,
+    body: `<form id="asetForm" data-id="${esc(id)}">
+      <div class="form-section">
+        <div class="form-section-title">Identitas Aset</div>
+        <div class="form-grid">
+          <label class="field span2">Nama Aset <span class="req">*</span>
+            <input name="nama" required value="${esc(a.nama || '')}" placeholder="cth: Proyektor Epson EB-X06">
+          </label>
+          <label class="field">Kategori
+            <select name="kategori">${KATEGORI_ASET.map((k) => `<option ${a.kategori === k ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>
+          </label>
+          <label class="field">Kondisi
+            <select name="kondisi">${KONDISI_ASET.map((k) => `<option ${a.kondisi === k ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>
+          </label>
+          <label class="field">Jumlah
+            <input type="number" min="0" step="1" name="jumlah" value="${esc(a.jumlah == null ? 1 : a.jumlah)}">
+          </label>
+          <label class="field">Satuan
+            <input name="satuan" value="${esc(a.satuan || 'unit')}" placeholder="unit / set / bidang / eksemplar">
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Nilai & Penempatan</div>
+        <div class="form-grid">
+          <label class="field">Tanggal Perolehan
+            <input type="date" name="tanggalPerolehan" value="${esc(a.tanggalPerolehan || '')}">
+          </label>
+          <label class="field">Nilai per Unit (Rp) <span class="hint-text">— total dihitung otomatis</span>
+            <input type="number" min="0" step="1000" name="nilaiPerolehan" value="${esc(a.nilaiPerolehan == null ? '' : a.nilaiPerolehan)}" placeholder="cth: 7200000">
+          </label>
+          <label class="field span2">Lokasi / Penempatan
+            <input name="lokasi" value="${esc(a.lokasi || '')}" placeholder="cth: Ruang ibadah, gudang belakang, garasi gereja">
+          </label>
+          <label class="field span2">Penanggung Jawab
+            <input name="penanggungjawab" list="pelayanList" value="${esc(a.penanggungjawab || '')}" placeholder="cth: Pnt. Petrus L. Toding">
+            ${pelayanDatalist()}
+          </label>
+          <label class="field span2">Catatan
+            <textarea name="catatan" rows="2" placeholder="cth: Perlu servis berkala, nomor STNK, luas tanah">${esc(a.catatan || '')}</textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" data-action="modal-close">Batal</button>
+        <button type="submit" class="btn btn-primary">${icon('check')} Simpan Aset</button>
+      </div>
+    </form>`,
+  });
+}
+
+function saveAsetForm(form) {
+  const fd = new FormData(form);
+  const id = form.dataset.id;
+  const nama = String(fd.get('nama') || '').trim();
+  if (!nama) { toast('Nama aset wajib diisi.', 'error'); return; }
+  const data = {
+    nama,
+    kategori: fd.get('kategori') || KATEGORI_ASET[0],
+    kondisi: fd.get('kondisi') || KONDISI_ASET[0],
+    jumlah: Math.max(0, Number(fd.get('jumlah')) || 0),
+    satuan: String(fd.get('satuan') || 'unit').trim() || 'unit',
+    tanggalPerolehan: fd.get('tanggalPerolehan') || '',
+    nilaiPerolehan: Math.max(0, Number(fd.get('nilaiPerolehan')) || 0),
+    lokasi: String(fd.get('lokasi') || '').trim(),
+    penanggungjawab: String(fd.get('penanggungjawab') || '').trim(),
+    catatan: String(fd.get('catatan') || '').trim(),
+  };
+  if (id) {
+    const idx = DB.aset.findIndex((a) => a.id === id);
+    if (idx >= 0) DB.aset[idx] = { ...DB.aset[idx], ...data };
+  } else {
+    DB.aset.push({ id: uid('as'), ...data });
+  }
+  saveDB();
+  closeModal();
+  rerender({ keepScroll: true });
+  toast(id ? 'Data aset diperbarui.' : 'Aset baru ditambahkan.');
+}
+
+function viewAset(id) {
+  const a = DB.aset.find((x) => x.id === id);
+  if (!a) return;
+  openModal({
+    wide: true,
+    title: 'Detail Aset',
+    body: `
+      <div class="modal-profile">
+        <span class="aset-ico lg">${icon('box')}</span>
+        <div style="min-width:0">
+          <h3>${esc(a.nama)}</h3>
+          <p>${esc(a.kategori)} · ${esc(a.lokasi || 'Lokasi belum diisi')}</p>
+          <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap"><span class="badge ${kondisiAsetTone(a.kondisi)}">${esc(a.kondisi)}</span><span class="badge gray">${num(a.jumlah)} ${esc(a.satuan || 'unit')}</span></div>
+        </div>
+      </div>
+      <div class="detail-grid">
+        <div><small>Kategori</small><b>${esc(a.kategori || '—')}</b></div>
+        <div><small>Jumlah</small><b>${num(a.jumlah)} ${esc(a.satuan || 'unit')}</b></div>
+        <div><small>Tanggal Perolehan</small><b>${a.tanggalPerolehan ? dateMedium(a.tanggalPerolehan) : '—'}</b></div>
+        <div><small>Nilai per Unit</small><b>${money(a.nilaiPerolehan)}</b></div>
+        <div><small>Total Nilai</small><b>${money(nilaiAset(a))}</b></div>
+        <div><small>Penanggung Jawab</small><b>${esc(a.penanggungjawab || '—')}</b></div>
+        <div class="full"><small>Lokasi / Penempatan</small><b>${esc(a.lokasi || '—')}</b></div>
+        ${a.catatan ? `<div class="full"><small>Catatan</small><b>${esc(a.catatan)}</b></div>` : ''}
+      </div>`,
+    footer: `<button class="btn btn-outline" data-action="modal-close">Tutup</button>
+             <button class="btn btn-primary" data-action="aset-edit" data-id="${a.id}">${icon('edit')} Edit Data</button>`,
+  });
+}
+
+function deleteAset(id) {
+  const a = DB.aset.find((x) => x.id === id);
+  if (!a) return;
+  confirmDialog({
+    title: 'Hapus Data Aset',
+    message: `Hapus aset <b>${esc(a.nama)}</b> dari daftar inventaris? Tindakan ini tidak dapat dibatalkan.`,
+    confirmText: 'Hapus Aset',
+    onConfirm: () => {
+      DB.aset = DB.aset.filter((x) => x.id !== id);
+      saveDB();
+      rerender({ keepScroll: true });
+      toast('Data aset dihapus.');
+    },
+  });
+}
+
+function exportAsetCSV() {
+  const rows = [
+    ['Nama Aset', 'Kategori', 'Jumlah', 'Satuan', 'Kondisi', 'Lokasi', 'Tanggal Perolehan', 'Nilai per Unit', 'Total Nilai', 'Penanggung Jawab', 'Catatan'],
+    ...sortedAset().map((a) => [
+      a.nama, a.kategori, a.jumlah, a.satuan, a.kondisi, a.lokasi, a.tanggalPerolehan,
+      Number(a.nilaiPerolehan) || 0, nilaiAset(a), a.penanggungjawab, a.catatan,
+    ]),
+  ];
+  downloadCSV(`Data-Aset-Maranatha-${todayISO()}.csv`, rows);
+  toast('Data aset diekspor ke CSV.');
+}
+
+function printAsetReport() {
+  const list = filteredAset();
+  const totalUnit = list.reduce((s, a) => s + (Number(a.jumlah) || 0), 0);
+  const totalNilai = totalNilaiAset(list);
+  const kategoriDipilih = UI.aset.kategori || 'Semua Kategori';
+  const rows = list.map((a, i) => `<tr>
+    <td>${i + 1}</td>
+    <td>${esc(a.nama)}${a.catatan ? `<br><span style="color:#7c8494;font-size:8.5px">${esc(a.catatan)}</span>` : ''}</td>
+    <td>${esc(a.kategori)}</td>
+    <td class="num">${num(a.jumlah)} ${esc(a.satuan || 'unit')}</td>
+    <td>${esc(a.kondisi)}</td>
+    <td>${esc(a.lokasi || '—')}</td>
+    <td>${a.tanggalPerolehan ? dateMedium(a.tanggalPerolehan) : '—'}</td>
+    <td class="num">${num(nilaiAset(a))}</td>
+  </tr>`).join('');
+  printHTML(`
+    <div class="print-doc">
+      <div class="print-head">
+        <div class="print-logo">✝</div>
+        <div>
+          <h1>${esc(DB.settings.nama)}</h1>
+          <p>${esc(DB.settings.alamat)} · ${esc(DB.settings.telepon)}</p>
+        </div>
+      </div>
+      <h2>Daftar Inventaris & Aset Gereja</h2>
+      <p class="print-sub">${esc(kategoriDipilih)} · Dicetak ${dateLong(todayISO())}</p>
+
+      <table>
+        <thead><tr><th style="width:26px">No</th><th>Nama Aset</th><th>Kategori</th><th class="num">Jumlah</th><th>Kondisi</th><th>Lokasi</th><th>Perolehan</th><th class="num" style="width:95px">Nilai (Rp)</th></tr></thead>
+        <tbody>
+          ${rows || '<tr><td colspan="8">Belum ada data aset.</td></tr>'}
+          <tr class="total"><td colspan="3">TOTAL (${num(list.length)} jenis · ${num(totalUnit)} unit)</td><td class="num">${num(totalUnit)}</td><td colspan="3"></td><td class="num">${num(totalNilai)}</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:9px;color:#6b768c">Nilai aset dicatat berdasarkan harga perolehan dan belum memperhitungkan penyusutan. Pemeriksaan fisik inventaris dilakukan oleh Majelis Jemaat setiap akhir tahun anggaran.</p>
+
+      <div class="print-sign">
+        <div>Mengetahui,<br>Ketua Majelis Jemaat<div class="line">${esc((DB.struktur.find((s) => s.jabatan === 'Ketua Majelis') || {}).nama || '________________')}</div></div>
+        <div>Tolitoli, ${dateMedium(todayISO())}<br>Bendahara<div class="line">${esc((DB.struktur.find((s) => /Bendahara/.test(s.jabatan)) || {}).nama || '________________')}</div></div>
+      </div>
+    </div>`);
 }
